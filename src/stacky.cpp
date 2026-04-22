@@ -97,19 +97,19 @@ struct Util {
         }
         return 0;
     }
-    static void msgt(const String& title, const String& format, ...) {
+    static void msgt(const String& title, const Char* format, ...) {
 	    static Char msgBuf[4096] = { 0 };
 	    va_list arglist;
 	    va_start(arglist, format);
-        vswprintf(msgBuf, format.c_str(), arglist);
+        vswprintf_s(msgBuf, sizeof(msgBuf) / sizeof(msgBuf[0]), format, arglist);
 	    va_end(arglist);
         ::MessageBox(0, msgBuf, title.c_str(), MB_OK | MB_ICONINFORMATION);
     }
-    static void msg(const String& format, ...) {
+    static void msg(const Char* format, ...) {
 	    static Char msgBuf[4096] = { 0 };
 	    va_list arglist;
 	    va_start(arglist, format);
-        vswprintf(msgBuf, format.c_str(), arglist);
+        vswprintf_s(msgBuf, sizeof(msgBuf) / sizeof(msgBuf[0]), format, arglist);
 	    va_end(arglist);
         ::MessageBox(0, msgBuf, L"Stacky", MB_OK | MB_ICONINFORMATION);
     }
@@ -528,9 +528,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPTSTR cmd_line, int) {
 
     if (cmd_line_error == ERR_PATH_MISSING)         Util::msgt(err_title + L"Parameter missing", L"Pass path to the stack folder in the command line, for ex.: \n\n        stacky.exe D:\\Projects");
     else if (cmd_line_error == ERR_PATH_INVALID)    Util::msgt(err_title + L"Invalid parameter", (L"Path: " + stack_path + L" is not a valid directory").c_str());
-    else if (!cache.scan())                         Util::msgt(err_title + L"Invalid path", err_msg);
-    else if (!cache.load())                         Util::msgt(err_title + L"Failed to load stack cache", err_msg);
-    else if (!app.init())                           Util::msgt(err_title + L"App init failed", err_msg);
+    else if (!cache.scan())                         Util::msgt(err_title + L"Invalid path", err_msg.c_str());
+    else if (!cache.load())                         Util::msgt(err_title + L"Failed to load stack cache", err_msg.c_str());
+    else if (!app.init())                           Util::msgt(err_title + L"App init failed", err_msg.c_str());
 	else                                            app.run();
 	return 0;
 }
