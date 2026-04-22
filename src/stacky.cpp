@@ -446,13 +446,14 @@ struct App {
         // Create window
         HMENU menu = ::CreatePopupMenu();
         int menu_pos = 0;
+        int command_offset = 0;
         if (cache->was_rebuilt) {
             add_separator(menu, L"Stack cache rebuilt!");
             menu_pos++;
         }
         for (size_t i = 1; i < cache->items.size(); i++) {
             Cache::Item& item = cache->items[i];
-            add_item(menu, menu_pos++, WM_MENU_ITEM + (int)i, item);
+            add_item(menu, menu_pos++, WM_MENU_ITEM + command_offset++, item);
         }
         show(menu);
         return true;
@@ -497,8 +498,21 @@ private:
 	    switch (msg) {
 		    case WM_COMMAND: {
                 Cache* cache = (Cache*)::GetWindowLongPtr(hwnd, GWLP_USERDATA);
-                String cmd = cache->path(wparam == WM_OPEN_TARGET_FOLDER ? L"" : cache->items[wparam - WM_MENU_ITEM].name);
-                ::ShellExecute(0, 0, cmd.c_str(), 0, 0, SW_NORMAL);
+                UINT command = LOWORD(wparam);
+                int item_idx = -1;
+                if (command == WM_OPEN_TARGET_FOLDER) {
+                    item_idx = 0;
+                }
+                else if (command >= WM_MENU_ITEM) {
+                    item_idx = (int)(command - WM_MENU_ITEM) + 1;
+                }
+                if (item_idx >= 0 && item_idx < (int)cache->items.size()) {
+                    String cmd = cache->path(item_idx == 0 ? L"" : cache->items[item_idx].name);
+                    HINSTANCE result = ::ShellExecute(0, 0, cmd.c_str(), 0, 0, SW_NORMAL);
+                    if ((INT_PTR)result <= 32) {
+                        Util::msgt(L"Stacky", L"Failed to open: %s", cmd.c_str());
+                    }
+                }
             }
 		    case WM_EXITMENULOOP:
                 // WM_EXITMENULOOP is sent before WM_COMMAND, so the app termination has to be delayed.
