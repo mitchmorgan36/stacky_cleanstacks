@@ -331,10 +331,9 @@ struct Cache {
 
 
     std::vector<Item>   items;
-    int                 fixed_items;
     bool                was_rebuilt;
 
-    Cache(const String& stack_path) : last_modified(0), was_rebuilt(false), scanned_last_modified(0), fixed_items(0) {
+    Cache(const String& stack_path) : last_modified(0), was_rebuilt(false), scanned_last_modified(0) {
         base_dir = Util::trim(Util::rtrim(stack_path, DIR_SEP), L"\"") + DIR_SEP;
         cache_path = path(CACHE_FILE_NAME);
     }
@@ -446,16 +445,14 @@ struct App {
 
         // Create window
         HMENU menu = ::CreatePopupMenu();
-        cache->fixed_items = 1;
-        add_item(menu, 0, WM_OPEN_TARGET_FOLDER, cache->items[0]);
+        int menu_pos = 0;
         if (cache->was_rebuilt) {
-            cache->fixed_items = 2;
             add_separator(menu, L"Stack cache rebuilt!");
+            menu_pos++;
         }
-        add_separator(menu, L"");
         for (size_t i = 1; i < cache->items.size(); i++) {
             Cache::Item& item = cache->items[i];
-            add_item(menu, (int)i + cache->fixed_items, WM_MENU_ITEM, item);
+            add_item(menu, menu_pos++, WM_MENU_ITEM + (int)i, item);
         }
         show(menu);
         return true;
@@ -474,12 +471,12 @@ private:
     bool add_separator(HMENU hMenu, const String& text) {
         return AppendMenu(hMenu, text.empty() ? MF_SEPARATOR : MF_GRAYED, 0, text.c_str()) == TRUE;
     }
-    bool add_item(HMENU hMenu, int idx, int msg, const Cache::Item& item) {
+    bool add_item(HMENU hMenu, int menu_pos, int command, const Cache::Item& item) {
         MENUITEMINFO mii = { sizeof(MENUITEMINFO) };
         mii.fMask = MIIM_BITMAP;
         mii.hbmpItem = item.bmp.hBmp;
-        ::AppendMenu(hMenu, MF_STRING, msg + idx, Util::rtrim(item.name, L".lnk").c_str());
-        return SUCCEEDED(::SetMenuItemInfo(hMenu, idx, TRUE, &mii));
+        ::AppendMenu(hMenu, MF_STRING, command, Util::rtrim(item.name, L".lnk").c_str());
+        return SUCCEEDED(::SetMenuItemInfo(hMenu, menu_pos, TRUE, &mii));
     }
     void show(HMENU menu) {
         RECT rWorkArea;
@@ -500,7 +497,7 @@ private:
 	    switch (msg) {
 		    case WM_COMMAND: {
                 Cache* cache = (Cache*)::GetWindowLongPtr(hwnd, GWLP_USERDATA);
-                String cmd = cache->path(wparam == WM_OPEN_TARGET_FOLDER ? L"" : cache->items[wparam - WM_MENU_ITEM - cache->fixed_items].name);
+                String cmd = cache->path(wparam == WM_OPEN_TARGET_FOLDER ? L"" : cache->items[wparam - WM_MENU_ITEM].name);
                 ::ShellExecute(0, 0, cmd.c_str(), 0, 0, SW_NORMAL);
             }
 		    case WM_EXITMENULOOP:
