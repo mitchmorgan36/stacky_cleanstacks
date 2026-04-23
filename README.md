@@ -22,13 +22,7 @@ This fork currently includes:
 
 The original upstream project stored prebuilt packages in a `binaries/` directory inside the repository. This fork does not use that approach for current downloads.
 
-For this fork, the expected download paths are:
-
-1. GitHub Releases for published builds
-2. GitHub Actions artifacts for CI output and pre-release testing
-3. local builds from `vsproj/stacky.sln`
-
-If you are looking for the current packaged executable, use the repository's Releases page rather than a file committed into the source tree.
+For this fork, the expected download path uses GitHub Releases for published builds. If you are looking for the current packaged executable, use the repository's Releases page.
 
 ## Building
 
@@ -59,7 +53,6 @@ This repository includes a GitHub Actions workflow at `.github/workflows/build-s
 ## Downloads
 
 - Use GitHub Releases for the current end-user download
-- Use GitHub Actions artifacts when you want a build from a specific workflow run before it is published as a release
 
 ## How To Use It
 
