@@ -3,6 +3,7 @@
  **************************************************************************************************/
 #include <windows.h>
 #include <Shlobj.h>
+#include <Shobjidl.h>
 #include <wincodec.h>
 #include <Tlhelp32.h>
 #pragma comment(lib, "Comctl32.lib")
@@ -122,6 +123,12 @@ struct Util {
         vswprintf_s(msgBuf, sizeof(msgBuf) / sizeof(msgBuf[0]), format, arglist);
 	    va_end(arglist);
         ::MessageBox(0, msgBuf, L"Stacky", MB_OK | MB_ICONINFORMATION);
+    }
+    static bool has_case_insensitive_suffix(const String& target, const String& suffix) {
+        if (target.size() < suffix.size()) {
+            return false;
+        }
+        return ::_wcsicmp(target.c_str() + target.size() - suffix.size(), suffix.c_str()) == 0;
     }
 };
 
@@ -508,20 +515,82 @@ private:
             default:                    return L"Windows could not open the selected item.";
         }
     }
+    static bool resolve_shortcut(const String& shortcut_path, String& resolved_path, String& arguments, String& working_dir) {
+        resolved_path.clear();
+        arguments.clear();
+        working_dir.clear();
+
+        HRESULT init_hr = ::CoInitialize(0);
+        bool should_uninit = SUCCEEDED(init_hr);
+        IShellLinkW* shell_link = 0;
+        IPersistFile* persist_file = 0;
+        bool success = false;
+        WCHAR target_buf[MAX_PATH] = { 0 };
+        WCHAR args_buf[1024] = { 0 };
+        WCHAR workdir_buf[MAX_PATH] = { 0 };
+        WIN32_FIND_DATA find_data = { 0 };
+
+        if (SUCCEEDED(::CoCreateInstance(CLSID_ShellLink, 0, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&shell_link)) &&
+            SUCCEEDED(shell_link->QueryInterface(IID_IPersistFile, (void**)&persist_file)) &&
+            SUCCEEDED(persist_file->Load(shortcut_path.c_str(), STGM_READ)) &&
+            SUCCEEDED(shell_link->GetPath(target_buf, MAX_PATH, &find_data, SLGP_RAWPATH))) {
+            shell_link->GetArguments(args_buf, sizeof(args_buf) / sizeof(args_buf[0]));
+            shell_link->GetWorkingDirectory(workdir_buf, sizeof(workdir_buf) / sizeof(workdir_buf[0]));
+            resolved_path = target_buf;
+            arguments = args_buf;
+            working_dir = workdir_buf;
+            success = !resolved_path.empty();
+        }
+
+        if (persist_file) {
+            persist_file->Release();
+        }
+        if (shell_link) {
+            shell_link->Release();
+        }
+        if (should_uninit) {
+            ::CoUninitialize();
+        }
+        return success;
+    }
     static bool launch_path(const String& target_path) {
-        DWORD attrs = ::GetFileAttributes(target_path.c_str());
+        String launch_target = target_path;
+        String launch_args;
+        String launch_working_dir;
         String display_path = Util::escape_mnemonics(target_path);
+
+        if (Util::has_case_insensitive_suffix(target_path, L".lnk")) {
+            if (!resolve_shortcut(target_path, launch_target, launch_args, launch_working_dir)) {
+                Util::msgt(L"Stacky", L"Failed to resolve shortcut:\n%s", display_path.c_str());
+                return false;
+            }
+        }
+
+        DWORD attrs = ::GetFileAttributes(launch_target.c_str());
         if (attrs == INVALID_FILE_ATTRIBUTES) {
-            Util::msgt(L"Stacky", L"Selected item does not exist:\n%s", display_path.c_str());
+            Util::msgt(
+                L"Stacky",
+                L"Selected item does not exist:\n%s\n\nResolved target:\n%s",
+                display_path.c_str(),
+                Util::escape_mnemonics(launch_target).c_str()
+            );
             return false;
         }
 
-        INT_PTR shell_result = (INT_PTR)::ShellExecute(0, 0, target_path.c_str(), 0, 0, SW_NORMAL);
+        INT_PTR shell_result = (INT_PTR)::ShellExecute(
+            0,
+            0,
+            launch_target.c_str(),
+            launch_args.empty() ? 0 : launch_args.c_str(),
+            launch_working_dir.empty() ? 0 : launch_working_dir.c_str(),
+            SW_NORMAL
+        );
         if (shell_result <= 32) {
             Util::msgt(
                 L"Stacky",
-                L"Failed to open:\n%s\n\nShell error %ld: %s",
+                L"Failed to open:\n%s\n\nResolved target:\n%s\n\nShell error %ld: %s",
                 display_path.c_str(),
+                Util::escape_mnemonics(launch_target).c_str(),
                 (long)shell_result,
                 describe_shell_error(shell_result)
             );

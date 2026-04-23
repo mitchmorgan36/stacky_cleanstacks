@@ -14,16 +14,26 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Add MSBuild to PATH
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (!(Test-Path -LiteralPath $vswhere)) {
+            throw "vswhere.exe not found"
+          }
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          if (!$msbuild) {
+            throw "MSBuild.exe not found"
+          }
+          Split-Path -Path $msbuild | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Build stacky.exe
         run: msbuild vsproj\stacky.sln /m /p:Configuration=Release /p:Platform=Win32
 
       - name: Upload stacky.exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stacky-release-win32
           path: vsproj\x86\Release\stacky.exe
