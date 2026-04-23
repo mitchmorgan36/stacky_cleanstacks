@@ -1,87 +1,94 @@
-[Stacky] Simple icon stacks solution for Windows
-============================================================================================
+# Stacky
 
-WARNING: This project is no longer maintained.
-----------------------------------------------
+Stacky is a small Windows utility that displays the contents of a folder as a popup list of clickable icons. It is useful for grouping related app shortcuts into a single taskbar icon.
 
-As you can tell from the commit history, the project hasn't been updated for a long time. Since I no longer use Windows, 
-I don't really have an easy way to even compile it anymore.
+## Fork Status
 
-Thank you for your kind words in the open issues (I just closed them all, as I won't be able to address them).
+This repository is a maintained fork of the original [`pawelt/stacky`](https://github.com/pawelt/stacky) project.
 
-Please feel free to fork the project and improve it. Good luck! :)
+The upstream project README explains that the original project is no longer maintained. This fork keeps the app working on a modern Windows / Visual Studio toolchain and carries a small set of behavior fixes.
 
+## Changes In This Fork
 
-What is it
-----------
+This fork currently includes:
 
-Stacky is a small program for Windows that displays contents of a given directory as a list of clickable, labled icons.
+- removal of the top `Open: <stack path>` row from the activated stack menu
+- corrected menu command handling after hiding that row
+- modernized Visual Studio project settings for the VS 2022 `v143` toolset
+- GitHub Actions build automation for `Release | Win32`
+- shortcut-launch fixes for modern Windows, including Office shortcut resolution from the 32-bit build
 
+## Build Artifacts
 
-Installation
-------------
+The historical `binaries/` directory is part of the original project history, but it should not be treated as the current distribution channel for this fork.
 
-There is no installation. Just download precompiled package from `binaries` directory (`stacky-x64.zip`, also contains CRT dependencies) and unzip.
+For this fork, the expected way to get a fresh build is:
 
-Direct link to precompiled binaries: https://github.com/pawelt/stacky/blob/master/binaries/stacky-x64.zip?raw=true
+1. build locally from `vsproj/stacky.sln`, or
+2. download the `stacky-release-win32` artifact from the latest successful GitHub Actions run
 
+## Building
 
-Compilation
------------
+### Local build
 
-You can build Stacky with free Microsoft tools, using solution file in the `vsproj` directory.
+Open `vsproj/stacky.sln` in Visual Studio 2022 and build:
 
-Full source code (about 500 lines of C++ code) is available in `src` directory.
+- `Configuration`: `Release`
+- `Platform`: `Win32`
 
+The project is currently configured for the `v143` platform toolset.
 
-How to use it
--------------
+Expected output:
 
-1. Create a regular windows shortcut to `stacky.exe`.
-2. Create a folder and put shortcuts to your programs there.
-3. Edit the shortcut and add the folder's path to the `Target` field, so it looks something like this:
+```text
+vsproj\x86\Release\stacky.exe
+```
 
-      `D:\pawel\Programs\Stacky\stacky.exe  D:\pawel\Stacks\Games`
-      
-4. Drag the stack shortcut to your taskbar.
+### CI build
 
-That's all. You can click the Stacky shortcut on the taskbar to open the new stack.
+This repository includes a GitHub Actions workflow at `.github/workflows/build-stacky.yml` that:
 
+- checks out the repository
+- locates MSBuild with `vswhere`
+- builds `vsproj\stacky.sln` as `Release | Win32`
+- uploads `stacky.exe` as the `stacky-release-win32` artifact
 
-Why is it useful
-----------------
+## How To Use It
 
-You can replace a bunch of icons on your taskbar with one icon. 
+1. Create a normal Windows shortcut to `stacky.exe`.
+2. Create a folder and place shortcuts to your programs in that folder.
+3. Edit the Stacky shortcut and append the stack folder path to the `Target` field, for example:
 
-Say you use Photoshop, Illustrator, Axure and couple other design-related programs. Instead of putting individual shortucts in your taskbar, you can create a folder called "Design", put all your design shortcuts there and create one shortcut on a taskbar.
+   ```text
+   D:\Programs\Stacky\stacky.exe D:\Stacks\Games
+   ```
 
-Whenever you click on the icon, you will see all the icons you put in the folder, ready to launch.
+4. Pin that shortcut to the taskbar.
 
-If you have 30+ programs, it is really convenient to split them into couple groups, instead of squizing in all icons right in the taskbar.
+Clicking the shortcut opens the stack menu for that folder.
 
-Stacks with shortcuts to folders to your projects, movies, pictures and anything else work great too.
+## Why Use It
 
+Stacky lets you replace a row of separate taskbar shortcuts with one grouped launcher.
 
-Why would you use Stacky instead of...
---------------------------------------
+For example, instead of pinning Excel, Outlook, PowerPoint, Teams, and Word separately, you can place those shortcuts in one folder and pin a single Stacky shortcut that opens them as a menu.
 
-There are couple products on the market that do similar thing, like [RocketDock](http://rocketdock.com/) or [7stacks](http://alastria.com/software/7stacks/). In fact, I used 7stacks for quite some time. These are fine products, but stacky has some unique features that you may like:
+The app is also useful for stacks of project folders, document folders, media folders, and other frequently used locations.
 
-- it is open source and 100% free
-- it does one thing and does it well
-- it's very small, requires no installation, no external configuration etc.
-- but most of all, it's the fastest available solution
+## Why Stacky Feels Fast
 
+Stacky caches stacked icons in a hidden cache file inside the stack folder. That means it does not need to re-read every `.lnk` file and extract every icon every time the menu opens.
 
-Why is it so fast?
-------------------
+When the stack folder changes, the cache is rebuilt automatically.
 
-Because Stacky caches stacked icons. Instead of reading and analyzing `.lnk` files (Windows shortcuts), and then fetching icons from corresponding executables every time you open a stack, Stacky stores all icons in one small file in the stack folder. When user opens a stack, no `.lnk` file nor `.exe` files are touched. Only Stacky cache file.
+That cache-first approach is why Stacky opens immediately even when a folder contains multiple shortcuts.
 
-Any time the shortcuts folder is modified (new shrtcut is added etc.), the cache is rebuilt.
+## Repository Notes
 
-7stacks every now and then makes you wait good couple seconds, before it renders the stack. Stacky never, ever does it. Stacks are displayed immediately, every time.
+- Source code lives in `src/`
+- Visual Studio project files live in `vsproj/`
+- CI workflow lives in `.github/workflows/build-stacky.yml`
 
-That's why stacky is faster than anything I've seen so far.
+## Upstream Credit
 
-
+Full credit for the original project goes to the upstream Stacky author and contributors. This fork keeps the project usable for current Windows setups while preserving the original app concept and implementation.
