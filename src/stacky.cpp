@@ -130,6 +130,22 @@ struct Util {
         }
         return ::_wcsicmp(target.c_str() + target.size() - suffix.size(), suffix.c_str()) == 0;
     }
+    static bool has_case_insensitive_prefix(const String& target, const String& prefix) {
+        return target.size() >= prefix.size() && ::_wcsnicmp(target.c_str(), prefix.c_str(), prefix.size()) == 0;
+    }
+    static bool get_env_string(const Char* name, String& value) {
+        value.clear();
+        DWORD required = ::GetEnvironmentVariable(name, 0, 0);
+        if (!required) {
+            return false;
+        }
+        std::vector<Char> buffer(required);
+        if (!::GetEnvironmentVariable(name, &buffer[0], required)) {
+            return false;
+        }
+        value.assign(&buffer[0]);
+        return !value.empty();
+    }
 };
 
 struct Buffer {
@@ -553,6 +569,23 @@ private:
         }
         return success;
     }
+    static void repair_resolved_target_path(String& resolved_path) {
+        if (resolved_path.empty() || ::GetFileAttributes(resolved_path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            return;
+        }
+
+        String program_files_x86, program_w6432;
+        if (!Util::get_env_string(L"ProgramFiles(x86)", program_files_x86) ||
+            !Util::get_env_string(L"ProgramW6432", program_w6432) ||
+            !Util::has_case_insensitive_prefix(resolved_path, program_files_x86)) {
+            return;
+        }
+
+        String candidate = program_w6432 + resolved_path.substr(program_files_x86.size());
+        if (::GetFileAttributes(candidate.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            resolved_path = candidate;
+        }
+    }
     static bool launch_path(const String& target_path) {
         String launch_target = target_path;
         String launch_args;
@@ -564,13 +597,14 @@ private:
                 Util::msgt(L"Stacky", L"Failed to resolve shortcut:\n%s", display_path.c_str());
                 return false;
             }
+            repair_resolved_target_path(launch_target);
         }
 
         DWORD attrs = ::GetFileAttributes(launch_target.c_str());
         if (attrs == INVALID_FILE_ATTRIBUTES) {
             Util::msgt(
                 L"Stacky",
-                L"Selected item does not exist:\n%s\n\nResolved target:\n%s",
+                L"Resolved target does not exist for:\n%s\n\nResolved target:\n%s",
                 display_path.c_str(),
                 Util::escape_mnemonics(launch_target).c_str()
             );
