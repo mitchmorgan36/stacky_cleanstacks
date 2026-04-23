@@ -20,7 +20,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Build stacky.exe
-        run: msbuild vsproj\stacky.sln /m /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143
+        run: msbuild vsproj\stacky.sln /m /p:Configuration=Release /p:Platform=Win32
 
       - name: Upload stacky.exe
         uses: actions/upload-artifact@v4

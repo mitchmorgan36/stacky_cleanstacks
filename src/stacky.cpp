@@ -62,6 +62,16 @@ struct Util {
     static String quote(const String& target) {
 	    return L"\"" + target + L"\"";
     }
+    static String escape_mnemonics(const String& target) {
+        String escaped;
+        for (size_t i = 0; i < target.size(); i++) {
+            escaped += target[i];
+            if (target[i] == L'&') {
+                escaped += L'&';
+            }
+        }
+        return escaped;
+    }
     static void kill_other_stackies() {
         PROCESSENTRY32 entry = { 0 };
 	    entry.dwSize = sizeof(PROCESSENTRY32);
@@ -69,8 +79,8 @@ struct Util {
 	    HANDLE snapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
 	    do {
 		    found = ::Process32Next(snapshot, &entry);
-		    if (entry.th32ProcessID != ::GetCurrentProcessId() && entry.szExeFile == STACKY_EXEC_NAME) {
-			    HANDLE hOtherStacky = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, entry.th32ProcessID); 
+		    if (entry.th32ProcessID != ::GetCurrentProcessId() && _wcsicmp(entry.szExeFile, STACKY_EXEC_NAME) == 0) {
+			    HANDLE hOtherStacky = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, entry.th32ProcessID);
 			    if (hOtherStacky) {
 				    ::TerminateProcess(hOtherStacky, 0);
 				    ::CloseHandle(hOtherStacky);
@@ -169,7 +179,7 @@ struct Buffer {
 private:
     struct FileWrap {
         FILE* f;
-        FileWrap(const String& path, const String& mode)    { f = _wfopen(path.c_str(), mode.c_str()); }
+        FileWrap(const String& path, const String& mode)    { _wfopen_s(&f, path.c_str(), mode.c_str()); }
         ~FileWrap()                                         { f && fclose(f); f = 0; }
         bool    is_open()                                   { return f != 0; }
         size_t  write(Byte* data, size_t size)              { return fwrite(data, 1, size, f); }
@@ -355,6 +365,7 @@ struct Cache {
             update_max_modified(filename);
 	    }
 	    while (FindNextFile(hfind, &ffd) != 0);
+        ::FindClose(hfind);
 	    return true;
     }
     bool load() {
@@ -479,6 +490,27 @@ private:
         ::AppendMenu(hMenu, MF_STRING, command, Util::rtrim(item.name, L".lnk").c_str());
         return SUCCEEDED(::SetMenuItemInfo(hMenu, menu_pos, TRUE, &mii));
     }
+    static bool launch_path(const String& target_path, const String& working_dir) {
+        DWORD attrs = ::GetFileAttributes(target_path.c_str());
+        String display_path = Util::escape_mnemonics(target_path);
+        if (attrs == INVALID_FILE_ATTRIBUTES) {
+            Util::msgt(L"Stacky", L"Selected item does not exist:\n%s", display_path.c_str());
+            return false;
+        }
+
+        SHELLEXECUTEINFO sei = { sizeof(SHELLEXECUTEINFO) };
+        sei.lpVerb = L"open";
+        sei.lpFile = target_path.c_str();
+        sei.lpDirectory = working_dir.empty() ? 0 : working_dir.c_str();
+        sei.nShow = SW_NORMAL;
+
+        if (!::ShellExecuteEx(&sei)) {
+            DWORD err = ::GetLastError();
+            Util::msgt(L"Stacky", L"Failed to open:\n%s\n\nWindows error: %lu", display_path.c_str(), err);
+            return false;
+        }
+        return true;
+    }
     void show(HMENU menu) {
         RECT rWorkArea;
         POINT pos;
@@ -508,10 +540,7 @@ private:
                 }
                 if (item_idx >= 0 && item_idx < (int)cache->items.size()) {
                     String cmd = cache->path(item_idx == 0 ? L"" : cache->items[item_idx].name);
-                    HINSTANCE result = ::ShellExecute(0, 0, cmd.c_str(), 0, 0, SW_NORMAL);
-                    if ((INT_PTR)result <= 32) {
-                        Util::msgt(L"Stacky", L"Failed to open: %s", cmd.c_str());
-                    }
+                    launch_path(cmd, cache->path());
                 }
             }
 		    case WM_EXITMENULOOP:
