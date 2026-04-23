@@ -79,7 +79,7 @@ struct Util {
 	    HANDLE snapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
 	    do {
 		    found = ::Process32Next(snapshot, &entry);
-		    if (entry.th32ProcessID != ::GetCurrentProcessId() && _wcsicmp(entry.szExeFile, STACKY_EXEC_NAME) == 0) {
+		    if (entry.th32ProcessID != ::GetCurrentProcessId() && ::lstrcmpiW(entry.szExeFile, STACKY_EXEC_NAME) == 0) {
 			    HANDLE hOtherStacky = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, entry.th32ProcessID);
 			    if (hOtherStacky) {
 				    ::TerminateProcess(hOtherStacky, 0);
