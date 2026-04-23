@@ -490,7 +490,25 @@ private:
         ::AppendMenu(hMenu, MF_STRING, command, Util::rtrim(item.name, L".lnk").c_str());
         return SUCCEEDED(::SetMenuItemInfo(hMenu, menu_pos, TRUE, &mii));
     }
-    static bool launch_path(const String& target_path, const String& working_dir) {
+    static const Char* describe_shell_error(INT_PTR shell_result) {
+        switch (shell_result) {
+            case 0:                     return L"Windows ran out of memory or resources.";
+            case ERROR_FILE_NOT_FOUND:  return L"The selected item was not found.";
+            case ERROR_PATH_NOT_FOUND:  return L"The selected path was not found.";
+            case ERROR_BAD_FORMAT:      return L"The target is not a valid executable.";
+            case SE_ERR_ACCESSDENIED:   return L"Windows denied access to the selected item.";
+            case SE_ERR_ASSOCINCOMPLETE:return L"The file association for this item is incomplete.";
+            case SE_ERR_DDEBUSY:        return L"The target application is busy.";
+            case SE_ERR_DDEFAIL:        return L"The target application did not respond to the request.";
+            case SE_ERR_DDETIMEOUT:     return L"The target application timed out.";
+            case SE_ERR_DLLNOTFOUND:    return L"A required DLL was not found.";
+            case SE_ERR_NOASSOC:        return L"Windows could not find an app association for the selected item.";
+            case SE_ERR_OOM:            return L"Windows ran out of memory while opening the item.";
+            case SE_ERR_SHARE:          return L"A sharing violation prevented the item from opening.";
+            default:                    return L"Windows could not open the selected item.";
+        }
+    }
+    static bool launch_path(const String& target_path) {
         DWORD attrs = ::GetFileAttributes(target_path.c_str());
         String display_path = Util::escape_mnemonics(target_path);
         if (attrs == INVALID_FILE_ATTRIBUTES) {
@@ -498,15 +516,15 @@ private:
             return false;
         }
 
-        SHELLEXECUTEINFO sei = { sizeof(SHELLEXECUTEINFO) };
-        sei.lpVerb = L"open";
-        sei.lpFile = target_path.c_str();
-        sei.lpDirectory = working_dir.empty() ? 0 : working_dir.c_str();
-        sei.nShow = SW_NORMAL;
-
-        if (!::ShellExecuteEx(&sei)) {
-            DWORD err = ::GetLastError();
-            Util::msgt(L"Stacky", L"Failed to open:\n%s\n\nWindows error: %lu", display_path.c_str(), err);
+        INT_PTR shell_result = (INT_PTR)::ShellExecute(0, 0, target_path.c_str(), 0, 0, SW_NORMAL);
+        if (shell_result <= 32) {
+            Util::msgt(
+                L"Stacky",
+                L"Failed to open:\n%s\n\nShell error %ld: %s",
+                display_path.c_str(),
+                (long)shell_result,
+                describe_shell_error(shell_result)
+            );
             return false;
         }
         return true;
@@ -540,7 +558,7 @@ private:
                 }
                 if (item_idx >= 0 && item_idx < (int)cache->items.size()) {
                     String cmd = cache->path(item_idx == 0 ? L"" : cache->items[item_idx].name);
-                    launch_path(cmd, cache->path());
+                    launch_path(cmd);
                 }
             }
 		    case WM_EXITMENULOOP:
