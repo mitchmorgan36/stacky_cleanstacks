@@ -20,12 +20,15 @@ This fork currently includes:
 
 ## Build Artifacts
 
-The historical `binaries/` directory is part of the original project history, but it should not be treated as the current distribution channel for this fork.
+The original upstream project stored prebuilt packages in a `binaries/` directory inside the repository. This fork does not use that approach for current downloads.
 
-For this fork, the expected way to get a fresh build is:
+For this fork, the expected download paths are:
 
-1. build locally from `vsproj/stacky.sln`, or
-2. download the `stacky-release-win32` artifact from the latest successful GitHub Actions run
+1. GitHub Releases for published builds
+2. GitHub Actions artifacts for CI output and pre-release testing
+3. local builds from `vsproj/stacky.sln`
+
+If you are looking for the current packaged executable, use the repository's Releases page rather than a file committed into the source tree.
 
 ## Building
 
@@ -52,6 +55,11 @@ This repository includes a GitHub Actions workflow at `.github/workflows/build-s
 - locates MSBuild with `vswhere`
 - builds `vsproj\stacky.sln` as `Release | Win32`
 - uploads `stacky.exe` as the `stacky-release-win32` artifact
+
+## Downloads
+
+- Use GitHub Releases for the current end-user download
+- Use GitHub Actions artifacts when you want a build from a specific workflow run before it is published as a release
 
 ## How To Use It
 
